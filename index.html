@@ -99,7 +99,7 @@
         <div id="result-screen" class="hidden-screen flex-1 flex flex-col items-center justify-center p-8 text-center fade-in">
             <div id="result-icon" class="text-6xl mb-4">🎉</div>
             <h1 id="result-title" class="text-3xl font-bold text-blue-700 mb-3 leading-snug" aria-live="polite"></h1>
-            <p class="text-gray-500 mb-6">끝까지 도전한 여러분을 축하합니다!</p>
+            <p id="result-subtitle" class="text-gray-500 mb-6"></p>
             
             <div class="bg-blue-50 rounded-2xl p-6 w-full mb-8 border border-blue-100">
                 <p class="text-4xl font-extrabold text-blue-600">
@@ -135,6 +135,7 @@
             { text: "R&E 페스타는 학생들의 새로운 아이디어를 탐구 단계의 연구로 처음 연결해주는 캠프이다.", answer: false }
         ];
 
+        let audioContext = null;
         let studentName = '';
         let stopFireworks = () => {};
         let selectedQuestions = [];
@@ -233,6 +234,7 @@
                 nameInput.focus();
                 return;
             }
+            prepareAudio();
             studentName = enteredName;
             stopFireworks();
             // 15문제 중 랜덤하게 5문제 추출
@@ -309,15 +311,70 @@
         // 결과 화면 표시
         function showResult() {
             ui.finalScore.innerText = score;
-            
-            document.getElementById('result-title').textContent = `${studentName}님, 합격하셨습니다!`;
-            ui.resultIcon.innerText = '🏆';
-            ui.resultMessage.innerText = score === 5
+            const passed = score === selectedQuestions.length && selectedQuestions.length === 5;
+            const title = document.getElementById('result-title');
+            title.textContent = passed
+                ? `${studentName}님, 합격하셨습니다!`
+                : `${studentName}님, 다시 도전해 주세요.`;
+            title.classList.toggle('text-blue-700', passed);
+            title.classList.toggle('text-orange-600', !passed);
+            document.getElementById('result-subtitle').textContent = passed
+                ? '축하합니다! 5문제를 모두 맞혔어요!'
+                : '5문제를 모두 맞히면 합격할 수 있어요!';
+            ui.resultIcon.innerText = passed ? '🏆' : '💨';
+            ui.resultMessage.innerText = passed
                 ? '완벽해요! 모든 문제를 맞혔어요.'
-                : '5문제 도전 완료! 멋진 도전에 박수를 보냅니다.';
-
+                : `${selectedQuestions.length - score}문제가 아쉬웠어요. 다시 도전해 봐요!`;
             showScreen('result');
-            launchFireworks();
+            if (passed) launchFireworks();
+            else {
+                stopFireworks();
+                playFartSound();
+            }
+        }
+
+        // 시작 버튼을 누를 때 오디오를 준비해 모바일에서도 효과음을 재생합니다.
+        function prepareAudio() {
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                if (!audioContext) audioContext = new AudioContextClass();
+                if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+            } catch (_) { /* 소리를 지원하지 않아도 퀴즈는 계속 진행합니다. */ }
+        }
+
+        // 짧고 우스꽝스러운 방귀 효과음: 낮은 진동음과 공기 소리를 합성합니다.
+        function playFartSound() {
+            try {
+                if (!audioContext || audioContext.state !== 'running') return;
+                const ctx = audioContext, now = ctx.currentTime, duration = 0.75;
+                const oscillator = ctx.createOscillator();
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(110, now);
+                oscillator.frequency.exponentialRampToValueAtTime(38, now + duration);
+                const wobble = ctx.createOscillator(), wobbleGain = ctx.createGain();
+                wobble.frequency.value = 28; wobbleGain.gain.value = 22;
+                wobble.connect(wobbleGain); wobbleGain.connect(oscillator.frequency);
+                const noise = ctx.createBufferSource();
+                const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * duration), ctx.sampleRate);
+                const samples = buffer.getChannelData(0);
+                for (let i = 0; i < samples.length; i++) samples[i] = (Math.random() * 2 - 1) * 0.22;
+                noise.buffer = buffer;
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass'; filter.frequency.value = 500;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.22, now + 0.04);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+                oscillator.connect(filter); noise.connect(filter);
+                filter.connect(gain); gain.connect(ctx.destination);
+                oscillator.start(now); noise.start(now); wobble.start(now);
+                oscillator.stop(now + duration); noise.stop(now + duration); wobble.stop(now + duration);
+                oscillator.onended = () => {
+                    oscillator.disconnect(); noise.disconnect(); wobble.disconnect();
+                    wobbleGain.disconnect(); filter.disconnect(); gain.disconnect();
+                };
+            } catch (_) { /* 오디오 재생 실패가 결과 표시를 막지 않게 합니다. */ }
         }
 
         // 게임 다시 시작
