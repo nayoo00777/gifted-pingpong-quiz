@@ -136,6 +136,7 @@
         ];
 
         let audioContext = null;
+        let stopResultSound = () => {};
         let studentName = '';
         let stopFireworks = () => {};
         let selectedQuestions = [];
@@ -203,6 +204,7 @@
                 nameInput.focus();
                 return;
             }
+            stopResultSound();
             prepareAudio();
             studentName = enteredName;
             stopFireworks();
@@ -295,7 +297,10 @@
                 ? '완벽해요! 모든 문제를 맞혔어요.'
                 : `${selectedQuestions.length - score}문제가 아쉬웠어요. 다시 도전해 봐요!`;
             showScreen('result');
-            if (passed) launchFireworks();
+            if (passed) {
+                launchFireworks();
+                playFanfareSound();
+            }
             else {
                 stopFireworks();
                 playFartSound();
@@ -312,11 +317,59 @@
             } catch (_) { /* 소리를 지원하지 않아도 퀴즈는 계속 진행합니다. */ }
         }
 
-        // 짧고 우스꽝스러운 방귀 효과음: 낮은 진동음과 공기 소리를 합성합니다.
-        function playFartSound() {
+        // 재도전 시 재생 중인 효과음을 정리해 소리가 겹치지 않게 합니다.
+        function manageResultSound(nodes, sources) {
+            let cleaned = false;
+            const cleanup = () => {
+                if (cleaned) return;
+                cleaned = true;
+                for (const source of sources) { try { source.stop(); } catch (_) {} }
+                for (const node of nodes) node.disconnect();
+            };
+            stopResultSound = cleanup;
+            return cleanup;
+        }
+
+        // 빵·빠·방~: 세 음으로 이루어진 3초 길이의 나팔 팡파르입니다.
+        function playFanfareSound() {
+            stopResultSound();
             try {
                 if (!audioContext || audioContext.state !== 'running') return;
-                const ctx = audioContext, now = ctx.currentTime, duration = 0.75;
+                const ctx = audioContext, now = ctx.currentTime;
+                const wave = ctx.createPeriodicWave(
+                    new Float32Array(7), new Float32Array([0, 1, 0.55, 0.32, 0.18, 0.1, 0.05]));
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass'; filter.frequency.value = 3500;
+                filter.connect(ctx.destination);
+                const nodes = [filter], sources = [];
+                const notes = [
+                    { pitch: 523.25, start: 0, end: 0.5 },
+                    { pitch: 659.25, start: 0.55, end: 1.05 },
+                    { pitch: 783.99, start: 1.1, end: 3 }
+                ];
+                for (const note of notes) {
+                    const horn = ctx.createOscillator(), gain = ctx.createGain();
+                    horn.setPeriodicWave(wave);
+                    horn.frequency.value = note.pitch;
+                    const start = now + note.start, end = now + note.end;
+                    gain.gain.setValueAtTime(0, start);
+                    gain.gain.linearRampToValueAtTime(0.16, start + 0.035);
+                    gain.gain.setValueAtTime(0.14, end - 0.12);
+                    gain.gain.linearRampToValueAtTime(0, end);
+                    horn.connect(gain); gain.connect(filter);
+                    nodes.push(horn, gain); sources.push(horn);
+                    horn.start(start); horn.stop(end);
+                }
+                sources[sources.length - 1].onended = manageResultSound(nodes, sources);
+            } catch (_) { /* 오디오 재생 실패가 결과 표시를 막지 않게 합니다. */ }
+        }
+
+        // 낮은 진동음과 공기 소리를 합성한 3초 길이의 방귀 효과음입니다.
+        function playFartSound() {
+            stopResultSound();
+            try {
+                if (!audioContext || audioContext.state !== 'running') return;
+                const ctx = audioContext, now = ctx.currentTime, duration = 3;
                 const oscillator = ctx.createOscillator();
                 oscillator.type = 'sawtooth';
                 oscillator.frequency.setValueAtTime(110, now);
@@ -334,20 +387,21 @@
                 const gain = ctx.createGain();
                 gain.gain.setValueAtTime(0, now);
                 gain.gain.linearRampToValueAtTime(0.22, now + 0.04);
+                gain.gain.linearRampToValueAtTime(0.16, now + 0.5);
+                gain.gain.setValueAtTime(0.16, now + duration - 0.35);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
                 oscillator.connect(filter); noise.connect(filter);
                 filter.connect(gain); gain.connect(ctx.destination);
                 oscillator.start(now); noise.start(now); wobble.start(now);
                 oscillator.stop(now + duration); noise.stop(now + duration); wobble.stop(now + duration);
-                oscillator.onended = () => {
-                    oscillator.disconnect(); noise.disconnect(); wobble.disconnect();
-                    wobbleGain.disconnect(); filter.disconnect(); gain.disconnect();
-                };
+                oscillator.onended = manageResultSound(
+                    [oscillator, noise, wobble, wobbleGain, filter, gain], [oscillator, noise, wobble]);
             } catch (_) { /* 오디오 재생 실패가 결과 표시를 막지 않게 합니다. */ }
         }
 
         // 게임 다시 시작
         function resetGame() {
+            stopResultSound();
             stopFireworks();
             studentName = '';
             nameInput.value = '';
