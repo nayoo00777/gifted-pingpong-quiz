@@ -330,37 +330,55 @@
             return cleanup;
         }
 
-        // 빵·빠·방~: 세 음으로 이루어진 3초 길이의 나팔 팡파르입니다.
+        // 트럼펫의 강한 배음, 텅잉 어택, 음정 상승과 비브라토를 합성합니다.
+        // 빵·빠·방~ 세 음의 전체 재생 시간은 3초입니다.
         function playFanfareSound() {
             stopResultSound();
             try {
                 if (!audioContext || audioContext.state !== 'running') return;
                 const ctx = audioContext, now = ctx.currentTime;
-                const wave = ctx.createPeriodicWave(
-                    new Float32Array(7), new Float32Array([0, 1, 0.55, 0.32, 0.18, 0.1, 0.05]));
-                const filter = ctx.createBiquadFilter();
-                filter.type = 'lowpass'; filter.frequency.value = 3500;
-                filter.connect(ctx.destination);
-                const nodes = [filter], sources = [];
+                const harmonics = new Float32Array([0, 0.65, 1, 0.9, 0.72, 0.52, 0.35, 0.24, 0.17, 0.1, 0.07, 0.04, 0.025]);
+                const trumpetWave = ctx.createPeriodicWave(new Float32Array(harmonics.length), harmonics);
+                const master = ctx.createGain(); master.gain.value = 0.7;
+                master.connect(ctx.destination);
+                const nodes = [master], sources = [];
                 const notes = [
                     { pitch: 523.25, start: 0, end: 0.5 },
                     { pitch: 659.25, start: 0.55, end: 1.05 },
                     { pitch: 783.99, start: 1.1, end: 3 }
                 ];
+                let lastTrumpet;
                 for (const note of notes) {
-                    const horn = ctx.createOscillator(), gain = ctx.createGain();
-                    horn.setPeriodicWave(wave);
-                    horn.frequency.value = note.pitch;
+                    const trumpet = ctx.createOscillator(), gain = ctx.createGain();
+                    const brightness = ctx.createBiquadFilter();
+                    const vibrato = ctx.createOscillator(), vibratoDepth = ctx.createGain();
                     const start = now + note.start, end = now + note.end;
+                    trumpet.setPeriodicWave(trumpetWave);
+                    trumpet.frequency.setValueAtTime(note.pitch * 0.975, start);
+                    trumpet.frequency.exponentialRampToValueAtTime(note.pitch, start + 0.045);
+                    brightness.type = 'lowpass'; brightness.Q.value = 0.8;
+                    brightness.frequency.setValueAtTime(1600, start);
+                    brightness.frequency.exponentialRampToValueAtTime(6500, start + 0.035);
+                    brightness.frequency.exponentialRampToValueAtTime(3700, start + 0.2);
+                    brightness.frequency.setValueAtTime(3700, end - 0.1);
+                    brightness.frequency.exponentialRampToValueAtTime(1800, end);
                     gain.gain.setValueAtTime(0, start);
-                    gain.gain.linearRampToValueAtTime(0.16, start + 0.035);
-                    gain.gain.setValueAtTime(0.14, end - 0.12);
+                    gain.gain.linearRampToValueAtTime(0.25, start + 0.018);
+                    gain.gain.linearRampToValueAtTime(0.18, start + 0.1);
+                    gain.gain.setValueAtTime(0.18, end - 0.1);
                     gain.gain.linearRampToValueAtTime(0, end);
-                    horn.connect(gain); gain.connect(filter);
-                    nodes.push(horn, gain); sources.push(horn);
-                    horn.start(start); horn.stop(end);
+                    vibrato.frequency.value = 5.4;
+                    vibratoDepth.gain.setValueAtTime(0, start);
+                    vibratoDepth.gain.linearRampToValueAtTime(note.pitch * 0.006, start + 0.3);
+                    vibrato.connect(vibratoDepth); vibratoDepth.connect(trumpet.frequency);
+                    trumpet.connect(brightness); brightness.connect(gain); gain.connect(master);
+                    nodes.push(trumpet, brightness, gain, vibrato, vibratoDepth);
+                    sources.push(trumpet, vibrato);
+                    trumpet.start(start); vibrato.start(start);
+                    trumpet.stop(end); vibrato.stop(end);
+                    lastTrumpet = trumpet;
                 }
-                sources[sources.length - 1].onended = manageResultSound(nodes, sources);
+                lastTrumpet.onended = manageResultSound(nodes, sources);
             } catch (_) { /* 오디오 재생 실패가 결과 표시를 막지 않게 합니다. */ }
         }
 
