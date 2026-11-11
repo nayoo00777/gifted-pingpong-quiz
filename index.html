@@ -53,7 +53,7 @@
             <p class="text-gray-500 mt-3 text-sm leading-relaxed">로봇과 영재교육, 얼마나 알고 있나요?<br>이름을 입력하고 도전해 보세요!</p>
             <div class="welcome-rule">
                 <div>🎯 랜덤으로 출제되는 <strong>5문제</strong></div>
-                <div>🏆 <strong>5문제 모두 정답</strong>이면 합격!</div>
+                <div>🏆 <strong>5문제 모두 정답</strong>이면 도전 성공!</div>
             </div>
             <form id="entry-form" class="w-full text-left">
                 <label for="student-name" class="block text-sm font-bold text-gray-700 mb-2">도전자의 이름</label>
@@ -285,13 +285,13 @@
             const passed = score === selectedQuestions.length && selectedQuestions.length === 5;
             const title = document.getElementById('result-title');
             title.textContent = passed
-                ? `${studentName}님, 합격하셨습니다!`
+                ? `${studentName}님, 도전! 성공!`
                 : `${studentName}님, 다시 도전해 주세요.`;
             title.classList.toggle('text-blue-700', passed);
             title.classList.toggle('text-orange-600', !passed);
             document.getElementById('result-subtitle').textContent = passed
                 ? '축하합니다! 5문제를 모두 맞혔어요!'
-                : '5문제를 모두 맞히면 합격할 수 있어요!';
+                : '5문제를 모두 맞히면 도전 성공!';
             ui.resultIcon.innerText = passed ? '🏆' : '💨';
             ui.resultMessage.innerText = passed
                 ? '완벽해요! 모든 문제를 맞혔어요.'
