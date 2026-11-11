@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O/X 퀴즈 게임</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .fade-in {
+            animation: fadeIn 0.4s ease-in-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .hidden-screen {
+            display: none !important;
+        }
+        .btn-press {
+            transition: transform 0.1s;
+        }
+        .btn-press:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- 메인 컨테이너 -->
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden relative min-h-[400px] flex flex-col border-t-8 border-yellow-400">
+        
+        <!-- 시작 화면 -->
+        <div id="start-screen" class="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in">
+            <div class="text-5xl mb-4">🤖</div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2 break-keep">영재교육 & 핑퐁로봇<br>퀴즈 챌린지</h1>
+            <p class="text-gray-500 mb-4 text-sm">로봇과 영재교육에 대한 퀴즈를 풀어보세요!<br>총 5문제가 랜덤으로 출제됩니다.</p>
+            
+            <!-- 공유 영역: QR 코드 및 링크 -->
+            <div class="bg-gray-50 rounded-xl p-4 w-full mb-6 flex flex-col items-center border border-gray-200">
+                <p class="text-xs font-semibold text-gray-500 mb-3">모바일로 접속하기</p>
+                <img id="qr-code-img" alt="QR Code" class="w-32 h-32 mb-3 bg-white p-1 border rounded shadow-sm">
+                <div class="flex items-center w-full bg-white border rounded-lg px-3 py-2 shadow-inner">
+                    <input type="text" id="share-link-input" readonly class="text-xs text-gray-600 bg-transparent w-full outline-none" value="">
+                    <button onclick="copyLink()" class="ml-2 text-blue-600 hover:text-blue-800 text-xs font-bold whitespace-nowrap bg-blue-50 px-2 py-1 rounded">복사</button>
+                </div>
+                <p id="copy-msg" class="text-xs text-green-600 mt-2 font-bold opacity-0 transition-opacity duration-300">클립보드에 복사되었습니다!</p>
+            </div>
+
+            <button onclick="startGame()" class="btn-press w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl shadow-md text-lg mt-auto">
+                게임 시작
+            </button>
+        </div>
+
+        <!-- 퀴즈 화면 -->
+        <div id="quiz-screen" class="hidden-screen flex-1 flex flex-col p-6 fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <span class="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full" id="progress-text">1 / 5</span>
+                <span class="text-gray-500 text-sm font-semibold">점수: <span id="score-text">0</span></span>
+            </div>
+            
+            <div class="flex-1 flex items-center justify-center mb-8">
+                <h2 id="question-text" class="text-xl font-bold text-gray-800 text-center leading-relaxed break-keep">
+                    <!-- 질문이 여기에 표시됩니다 -->
+                </h2>
+            </div>
+
+            <!-- 피드백 메시지 (정답/오답) -->
+            <div id="feedback-container" class="h-8 flex items-center justify-center mb-4 opacity-0 transition-opacity duration-300">
+                <p id="feedback-text" class="text-lg font-bold"></p>
+            </div>
+
+            <div class="flex space-x-4">
+                <button id="btn-o" onclick="selectAnswer(true)" class="btn-press flex-1 bg-blue-500 hover:bg-blue-600 text-white text-6xl font-bold py-8 rounded-2xl shadow-md flex items-center justify-center transition-colors">
+                    O
+                </button>
+                <button id="btn-x" onclick="selectAnswer(false)" class="btn-press flex-1 bg-red-500 hover:bg-red-600 text-white text-6xl font-bold py-8 rounded-2xl shadow-md flex items-center justify-center transition-colors">
+                    X
+                </button>
+            </div>
+        </div>
+
+        <!-- 결과 화면 -->
+        <div id="result-screen" class="hidden-screen flex-1 flex flex-col items-center justify-center p-8 text-center fade-in">
+            <div id="result-icon" class="text-6xl mb-4">🎉</div>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">게임 종료!</h1>
+            <p class="text-gray-500 mb-6">당신의 최종 점수는?</p>
+            
+            <div class="bg-blue-50 rounded-2xl p-6 w-full mb-8 border border-blue-100">
+                <p class="text-4xl font-extrabold text-blue-600">
+                    <span id="final-score">0</span><span class="text-2xl text-gray-600"> / 5점</span>
+                </p>
+                <p id="result-message" class="text-gray-700 mt-2 font-semibold"></p>
+            </div>
+
+            <button onclick="resetGame()" class="btn-press w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 px-6 rounded-xl shadow-md text-lg">
+                다시 하기
+            </button>
+        </div>
+        
+    </div>
+
+    <script>
+        // 퀴즈 데이터 풀 (15문항)
+        const allQuestions = [
+            { text: "G큐브 핑퐁로봇은 큐브를 더할수록 다양한 로봇 모델을 만들 수 있다.", answer: true },
+            { text: "핑퐁로봇의 G큐브는 조립 공구 없이 링크를 끼워 1분 만에 조립할 수 있다.", answer: true },
+            { text: "G큐브 1개로 만들 수 있는 로봇 모델의 이름은 앤트봇이다.", answer: false },
+            { text: "G큐브에는 소리와 빛을 내는 부저와 칼라 LED가 내장되어 있다.", answer: true },
+            { text: "핑퐁로봇은 오직 전용 앱으로만 조종할 수 있으며, 스크래치나 파이썬 등과는 연동되지 않는다.", answer: false },
+            { text: "'라인봇' 미션은 바닥의 선을 따라가며 컬러 센서로 색을 읽어 방향을 바꾸는 원리를 이용한다.", answer: true },
+            { text: "라인봇 수학 미션에서 로봇의 출발점은 초록색, 도착점은 주황색이다.", answer: false },
+            { text: "드로잉봇으로 정다각형을 그릴 때, 삼각형을 그리려면 꼭짓점에서 로봇이 120도 돌아야 한다.", answer: true },
+            { text: "오일러의 한 붓 그리기 규칙에 따르면, 선이 홀수 개 모인 점이 0개 또는 2개일 때 한 붓 그리기가 가능하다.", answer: true },
+            { text: "배틀봇 사탕 쟁탈전은 정해진 시간 1분 동안 사탕을 밀어서 상대방 진영에 많이 넣으면 승리한다.", answer: false },
+            { text: "부산광역시교육청영재교육진흥원의 비전은 '대한민국 영재교육의 중심 플랫폼'이다.", answer: true },
+            { text: "영재교육진흥원의 3대 전략은 연구, 연수, 그리고 교육지원이다.", answer: true },
+            { text: "초·중학생을 대상으로 문제 발견에서 해결까지 탐구하는 캠프의 이름은 상상실현(I&D) 캠프이다.", answer: true },
+            { text: "영재교육진흥원은 교사들의 전문성을 높이기 위해 기초, 심화, 전문 연수 등 다양한 연수 프로그램을 운영한다.", answer: true },
+            { text: "R&E 페스타는 학생들의 새로운 아이디어를 탐구 단계의 연구로 처음 연결해주는 캠프이다.", answer: false }
+        ];
+
+        let selectedQuestions = [];
+        let currentIndex = 0;
+        let score = 0;
+        let isProcessing = false; // 중복 클릭 방지 플래그
+
+        // DOM 요소
+        const screens = {
+            start: document.getElementById('start-screen'),
+            quiz: document.getElementById('quiz-screen'),
+            result: document.getElementById('result-screen')
+        };
+        
+        const ui = {
+            questionText: document.getElementById('question-text'),
+            progressText: document.getElementById('progress-text'),
+            scoreText: document.getElementById('score-text'),
+            finalScore: document.getElementById('final-score'),
+            resultMessage: document.getElementById('result-message'),
+            feedbackContainer: document.getElementById('feedback-container'),
+            feedbackText: document.getElementById('feedback-text'),
+            btnO: document.getElementById('btn-o'),
+            btnX: document.getElementById('btn-x'),
+            resultIcon: document.getElementById('result-icon'),
+            qrCodeImg: document.getElementById('qr-code-img'),
+            shareLinkInput: document.getElementById('share-link-input'),
+            copyMsg: document.getElementById('copy-msg')
+        };
+
+        // 초기화: QR 코드 및 URL 설정
+        window.onload = function() {
+            const currentUrl = window.location.href;
+            
+            // qrserver API를 사용해 QR 코드 이미지 로드
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(currentUrl)}`;
+            ui.qrCodeImg.src = qrApiUrl;
+
+            // 공유 링크 인풋 설정
+            ui.shareLinkInput.value = currentUrl;
+        };
+
+        // 공유 링크 복사 함수
+        function copyLink() {
+            ui.shareLinkInput.select();
+            ui.shareLinkInput.setSelectionRange(0, 99999); // 모바일 기기 호환성
+
+            try {
+                document.execCommand('copy');
+                ui.copyMsg.style.opacity = '1';
+                setTimeout(() => {
+                    ui.copyMsg.style.opacity = '0';
+                }, 2000);
+            } catch (err) {
+                console.error('링크 복사에 실패했습니다.', err);
+            }
+        }
+
+        // 배열 셔플 함수 (Fisher-Yates)
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [
+                    array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        // 화면 전환 함수
+        function showScreen(screenName) {
+            Object.values(screens).forEach(screen => {
+                screen.classList.add('hidden-screen');
+                screen.classList.remove('fade-in'); // 애니메이션 리셋
+            });
+            screens[screenName].classList.remove('hidden-screen');
+            // 리플로우 강제 유발 후 애니메이션 클래스 추가
+            void screens[screenName].offsetWidth;
+            screens[screenName].classList.add('fade-in');
+        }
+
+        // 게임 시작
+        function startGame() {
+            // 10문제 중 랜덤하게 5문제 추출
+            const shuffled = shuffle([...allQuestions]);
+            selectedQuestions = shuffled.slice(0, 5);
+            
+            currentIndex = 0;
+            score = 0;
+            isProcessing = false;
+            
+            ui.scoreText.innerText = score;
+            
+            loadQuestion();
+            showScreen('quiz');
+        }
+
+        // 문제 로드
+        function loadQuestion() {
+            const currentQ = selectedQuestions[currentIndex];
+            ui.questionText.innerText = currentQ.text;
+            ui.progressText.innerText = `${currentIndex + 1} / 5`;
+            
+            // 피드백 초기화 및 버튼 활성화
+            ui.feedbackContainer.style.opacity = '0';
+            ui.btnO.disabled = false;
+            ui.btnX.disabled = false;
+            ui.btnO.classList.remove('opacity-50');
+            ui.btnX.classList.remove('opacity-50');
+        }
+
+        // 정답 선택 처리
+        function selectAnswer(userAnswer) {
+            if (isProcessing) return; // 이미 처리중이면 무시
+            isProcessing = true;
+
+            const currentQ = selectedQuestions[currentIndex];
+            const isCorrect = (userAnswer === currentQ.answer);
+
+            // 버튼 시각적 비활성화
+            ui.btnO.disabled = true;
+            ui.btnX.disabled = true;
+            if (userAnswer) ui.btnX.classList.add('opacity-50');
+            else ui.btnO.classList.add('opacity-50');
+
+            // 피드백 표시
+            if (isCorrect) {
+                score++;
+                ui.scoreText.innerText = score;
+                ui.feedbackText.innerText = "✅ 정답입니다!";
+                ui.feedbackText.className = "text-xl font-bold text-green-600";
+            } else {
+                ui.feedbackText.innerText = "❌ 틀렸습니다!";
+                ui.feedbackText.className = "text-xl font-bold text-red-600";
+            }
+            ui.feedbackContainer.style.opacity = '1';
+
+            // 1초 후 다음 문제 또는 결과 화면으로 이동
+            setTimeout(() => {
+                currentIndex++;
+                if (currentIndex < selectedQuestions.length) {
+                    // 다음 문제 렌더링 시 페이드 효과를 위해 컨테이너 애니메이션 재적용
+                    screens.quiz.classList.remove('fade-in');
+                    void screens.quiz.offsetWidth; 
+                    screens.quiz.classList.add('fade-in');
+                    
+                    loadQuestion();
+                    isProcessing = false;
+                } else {
+                    showResult();
+                }
+            }, 1200);
+        }
+
+        // 결과 화면 표시
+        function showResult() {
+            ui.finalScore.innerText = score;
+            
+            if (score === 5) {
+                ui.resultIcon.innerText = "🏆";
+                ui.resultMessage.innerText = "완벽합니다! 모든 문제를 맞히셨어요.";
+            } else if (score >= 3) {
+                ui.resultIcon.innerText = "👏";
+                ui.resultMessage.innerText = "참 잘했어요! 훌륭한 실력이네요.";
+            } else {
+                ui.resultIcon.innerText = "💡";
+                ui.resultMessage.innerText = "조금 더 분발해 보세요! 할 수 있어요.";
+            }
+
+            showScreen('result');
+        }
+
+        // 게임 다시 시작
+        function resetGame() {
+            startGame();
+        }
+    </script>
+</body>
+</html>
