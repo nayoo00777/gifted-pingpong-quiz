@@ -108,9 +108,14 @@
                 <p id="result-message" class="text-gray-700 mt-2 font-semibold"></p>
             </div>
 
-            <button onclick="resetGame()" class="btn-press w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 px-6 rounded-xl shadow-md text-lg">
-                다시 하기
-            </button>
+            <div class="flex gap-3 w-full">
+                <button onclick="resetGame()" class="btn-press flex-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 px-3 rounded-xl shadow-md text-lg">
+                    다시 하기
+                </button>
+                <button id="finish-button" onclick="finishGame()" class="btn-press flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 px-3 rounded-xl shadow-md text-lg">
+                    끝내기
+                </button>
+            </div>
         </div>
         
     </div>
@@ -296,6 +301,7 @@
             ui.resultMessage.innerText = passed
                 ? '완벽해요! 모든 문제를 맞혔어요.'
                 : `${selectedQuestions.length - score}문제가 아쉬웠어요. 다시 도전해 봐요!`;
+            document.getElementById('finish-button').hidden = !passed;
             showScreen('result');
             if (passed) {
                 launchFireworks();
@@ -415,6 +421,18 @@
                 oscillator.onended = manageResultSound(
                     [oscillator, noise, wobble, wobbleGain, filter, gain], [oscillator, noise, wobble]);
             } catch (_) { /* 오디오 재생 실패가 결과 표시를 막지 않게 합니다. */ }
+        }
+
+        // 직접 연 창은 닫고, 일반 브라우저 탭에서는 빈 화면으로 나갑니다.
+        function finishGame() {
+            stopResultSound();
+            stopFireworks();
+            studentName = '';
+            nameInput.value = '';
+            setTimeout(() => {
+                if (!window.closed) window.location.replace('about:blank');
+            }, 100);
+            try { window.close(); } catch (_) { /* 빈 화면으로 종료하는 대체 동작을 사용합니다. */ }
         }
 
         // 게임 다시 시작
